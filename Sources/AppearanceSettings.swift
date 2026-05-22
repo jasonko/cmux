@@ -100,12 +100,15 @@ enum AppearanceSettings {
         return resolved
     }
 
+    /// Returns the Ghostty terminal color-scheme preference.
+    /// - Note: `colorSchemePreference` keeps the `appAppearance` parameter for API compatibility
+    ///   and intentionally ignores it.
     static func colorSchemePreference(
         appAppearance _: NSAppearance? = nil,
         defaults: UserDefaults = .standard,
         systemAppearance: SystemAppearance? = nil
     ) -> GhosttyConfig.ColorSchemePreference {
-        return terminalColorSchemePreference(defaults: defaults, systemAppearance: systemAppearance)
+        terminalColorSchemePreference(defaults: defaults, systemAppearance: systemAppearance)
     }
 
     // Ghostty split-theme resolution follows cmux's persisted appearance mode.
