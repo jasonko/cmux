@@ -1403,10 +1403,34 @@ final class KeyboardShortcutSettingsFileStoreTests: XCTestCase {
         )
         defer { appDelegate.unregisterMainWindowContextForTesting(windowId: windowId) }
 
+        let previousMainMenu = NSApp.mainMenu
+        defer { NSApp.mainMenu = previousMainMenu }
+
+        let mainMenu = NSMenu(title: "Main")
+        let appMenuItem = NSMenuItem(title: "cmux", action: nil, keyEquivalent: "")
+        let appMenu = NSMenu(title: "cmux")
         let reloadItem = NSMenuItem(
             title: String(localized: "menu.app.reloadConfiguration", defaultValue: "Reload Configuration"),
             action: NSSelectorFromString("swiftuiPrivateReloadAction:"),
             keyEquivalent: ""
+        )
+        appMenu.addItem(reloadItem)
+        mainMenu.addItem(appMenuItem)
+        mainMenu.setSubmenu(appMenu, for: appMenuItem)
+        NSApp.mainMenu = mainMenu
+
+        let selector = NSSelectorFromString("reloadConfigurationMenuItem:")
+        XCTAssertTrue(
+            appDelegate.responds(to: selector),
+            "Reload Configuration menu item must have an AppKit selector-backed action path"
+        )
+        XCTAssertTrue(
+            appDelegate.handleReloadConfigurationMenuAction(
+                action: selector,
+                target: appDelegate,
+                sender: nil
+            ),
+            "The selector-backed reload command should dispatch through AppDelegate"
         )
 
         try writeSettingsFile(
@@ -1420,10 +1444,18 @@ final class KeyboardShortcutSettingsFileStoreTests: XCTestCase {
             to: settingsFileURL
         )
 
-        let selector = NSSelectorFromString("reloadConfigurationMenuItem:")
-        XCTAssertTrue(
-            appDelegate.responds(to: selector),
-            "Reload Configuration menu item must have an AppKit selector-backed action path"
+        let unrelatedReloadItem = NSMenuItem(
+            title: reloadItem.title,
+            action: reloadItem.action,
+            keyEquivalent: ""
+        )
+        XCTAssertFalse(
+            appDelegate.handleReloadConfigurationMenuAction(
+                action: unrelatedReloadItem.action!,
+                target: unrelatedReloadItem.target,
+                sender: unrelatedReloadItem
+            ),
+            "Only the app menu Reload Configuration item should be intercepted by title"
         )
 
         XCTAssertTrue(

@@ -11263,24 +11263,47 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     }
 
     func handleReloadConfigurationMenuAction(
-        action _: Selector,
-        target _: Any?,
+        action: Selector,
+        target: Any?,
         sender: Any?
     ) -> Bool {
-        guard let menuItem = sender as? NSMenuItem,
-              isReloadConfigurationMenuItem(menuItem) else {
-            return false
+        guard Thread.isMainThread else { return false }
+
+        return MainActor.assumeIsolated {
+            guard Self.shouldInterceptReloadConfigurationMenuAction(
+                action,
+                target: target,
+                sender: sender
+            ) else { return false }
+            reloadConfigurationMenuItem(sender)
+            return true
         }
-        reloadConfigurationMenuItem(menuItem)
-        return true
     }
 
-    private func isReloadConfigurationMenuItem(_ item: NSMenuItem) -> Bool {
+    private static func shouldInterceptReloadConfigurationMenuAction(
+        _ action: Selector,
+        target: Any?,
+        sender: Any?
+    ) -> Bool {
+        let selectorName = NSStringFromSelector(action)
+        let reloadConfigurationSelectorName = NSStringFromSelector(
+            #selector(AppDelegate.reloadConfigurationMenuItem(_:))
+        )
+        if selectorName == reloadConfigurationSelectorName {
+            return target == nil || target is AppDelegate
+        }
+
+        guard let item = sender as? NSMenuItem else { return false }
+        return isSwiftUIReloadConfigurationMenuItem(item)
+    }
+
+    private static func isSwiftUIReloadConfigurationMenuItem(_ item: NSMenuItem) -> Bool {
         let reloadConfigurationTitle = String(
             localized: "menu.app.reloadConfiguration",
             defaultValue: "Reload Configuration"
         )
-        return item.title == reloadConfigurationTitle
+        guard item.title == reloadConfigurationTitle else { return false }
+        return item.menu === NSApp.mainMenu?.items.first?.submenu
     }
 
     func reloadConfiguration(

@@ -243,7 +243,7 @@ struct cmuxApp: App {
                     GhosttyApp.shared.openConfigurationInTextEdit()
                 }
                 splitCommandButton(title: String(localized: "menu.app.reloadConfiguration", defaultValue: "Reload Configuration"), shortcut: menuShortcut(for: .reloadConfiguration)) {
-                    appDelegate.reloadConfigurationMenuItem(nil)
+                    dispatchReloadConfigurationMenuCommand()
                 }
             }
 
@@ -1107,6 +1107,14 @@ struct cmuxApp: App {
         } else {
             Button(title, action: action)
         }
+    }
+
+    private func dispatchReloadConfigurationMenuCommand() {
+        NSApp.sendAction(
+            #selector(AppDelegate.reloadConfigurationMenuItem(_:)),
+            to: appDelegate,
+            from: nil
+        )
     }
 
     private func closePanelOrWindow() {
