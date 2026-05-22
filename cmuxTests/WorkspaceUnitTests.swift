@@ -1409,12 +1409,12 @@ final class KeyboardShortcutSettingsFileStoreTests: XCTestCase {
         let mainMenu = NSMenu(title: "Main")
         let appMenuItem = NSMenuItem(title: "cmux", action: nil, keyEquivalent: "")
         let appMenu = NSMenu(title: "cmux")
-        let reloadItem = NSMenuItem(
+        let originalReloadItem = NSMenuItem(
             title: String(localized: "menu.app.reloadConfiguration", defaultValue: "Reload Configuration"),
             action: NSSelectorFromString("swiftuiPrivateReloadAction:"),
             keyEquivalent: ""
         )
-        appMenu.addItem(reloadItem)
+        appMenu.addItem(originalReloadItem)
         mainMenu.addItem(appMenuItem)
         mainMenu.setSubmenu(appMenu, for: appMenuItem)
         NSApp.mainMenu = mainMenu
@@ -1424,14 +1424,24 @@ final class KeyboardShortcutSettingsFileStoreTests: XCTestCase {
             appDelegate.responds(to: selector),
             "Reload Configuration menu item must have an AppKit selector-backed action path"
         )
-        XCTAssertTrue(
-            appDelegate.handleReloadConfigurationMenuAction(
-                action: selector,
-                target: appDelegate,
-                sender: nil
-            ),
-            "The selector-backed reload command should dispatch through AppDelegate"
+        appDelegate.installReloadConfigurationMenuItemAction()
+        XCTAssertTrue(originalReloadItem.target === appDelegate)
+        XCTAssertEqual(originalReloadItem.action, selector)
+        XCTAssertEqual(
+            originalReloadItem.identifier,
+            NSUserInterfaceItemIdentifier("com.cmux.reloadConfiguration")
         )
+
+        let rebuiltReloadItem = NSMenuItem(
+            title: originalReloadItem.title,
+            action: NSSelectorFromString("swiftuiPrivateReloadAction:"),
+            keyEquivalent: ""
+        )
+        appMenu.removeItem(originalReloadItem)
+        appMenu.addItem(rebuiltReloadItem)
+        appDelegate.menuNeedsUpdate(appMenu)
+        XCTAssertTrue(rebuiltReloadItem.target === appDelegate)
+        XCTAssertEqual(rebuiltReloadItem.action, selector)
 
         try writeSettingsFile(
             """
@@ -1445,26 +1455,17 @@ final class KeyboardShortcutSettingsFileStoreTests: XCTestCase {
         )
 
         let unrelatedReloadItem = NSMenuItem(
-            title: reloadItem.title,
-            action: reloadItem.action,
+            title: rebuiltReloadItem.title,
+            action: NSSelectorFromString("swiftuiPrivateReloadAction:"),
             keyEquivalent: ""
         )
-        XCTAssertFalse(
-            appDelegate.handleReloadConfigurationMenuAction(
-                action: unrelatedReloadItem.action!,
-                target: unrelatedReloadItem.target,
-                sender: unrelatedReloadItem
-            ),
-            "Only the app menu Reload Configuration item should be intercepted by title"
-        )
+        let unrelatedMenu = NSMenu(title: "Unrelated")
+        unrelatedMenu.addItem(unrelatedReloadItem)
+        appDelegate.menuNeedsUpdate(unrelatedMenu)
+        XCTAssertFalse(unrelatedReloadItem.target === appDelegate)
+        XCTAssertNotEqual(unrelatedReloadItem.action, selector)
 
-        XCTAssertTrue(
-            appDelegate.handleReloadConfigurationMenuAction(
-                action: reloadItem.action!,
-                target: reloadItem.target,
-                sender: reloadItem
-            )
-        )
+        XCTAssertTrue(NSApp.sendAction(selector, to: rebuiltReloadItem.target, from: rebuiltReloadItem))
 
         XCTAssertNil(cmuxConfigStore.resolvedAction(id: "first"))
         XCTAssertNotNil(cmuxConfigStore.resolvedAction(id: "second"))
