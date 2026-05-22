@@ -11200,7 +11200,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
 
     private func handleShortcutDefaultsDidChange() {
         clearConfiguredShortcutChordState()
-        installReloadConfigurationMenuItemAction()
         scheduleSplitButtonTooltipRefreshAcrossWorkspaces()
     }
 
@@ -11263,36 +11262,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         reloadConfiguration(source: "menu.reload_configuration")
     }
 
-    func installReloadConfigurationMenuItemAction() {
-        guard let item = findReloadConfigurationMenuItem(in: NSApp.mainMenu) else { return }
-        item.target = self
-        item.action = #selector(reloadConfigurationMenuItem(_:))
-
-        let shortcut = KeyboardShortcutSettings.menuShortcut(for: .reloadConfiguration)
-        if let keyEquivalent = shortcut.menuItemKeyEquivalent {
-            item.keyEquivalent = keyEquivalent
-            item.keyEquivalentModifierMask = shortcut.modifierFlags
-        } else {
-            item.keyEquivalent = ""
-            item.keyEquivalentModifierMask = []
+    func handleReloadConfigurationMenuAction(
+        action _: Selector,
+        target _: Any?,
+        sender: Any?
+    ) -> Bool {
+        guard let menuItem = sender as? NSMenuItem,
+              isReloadConfigurationMenuItem(menuItem) else {
+            return false
         }
+        reloadConfigurationMenuItem(menuItem)
+        return true
     }
 
-    private func findReloadConfigurationMenuItem(in menu: NSMenu?) -> NSMenuItem? {
-        guard let menu else { return nil }
+    private func isReloadConfigurationMenuItem(_ item: NSMenuItem) -> Bool {
         let reloadConfigurationTitle = String(
             localized: "menu.app.reloadConfiguration",
             defaultValue: "Reload Configuration"
         )
-        for item in menu.items {
-            if item.title == reloadConfigurationTitle {
-                return item
-            }
-            if let match = findReloadConfigurationMenuItem(in: item.submenu) {
-                return match
-            }
-        }
-        return nil
+        return item.title == reloadConfigurationTitle
     }
 
     func reloadConfiguration(
@@ -15064,6 +15052,14 @@ private extension NSApplication {
     }
 
     @objc func cmux_sendAction(_ action: Selector, to target: Any?, from sender: Any?) -> Bool {
+        if AppDelegate.shared?.handleReloadConfigurationMenuAction(
+            action: action,
+            target: target,
+            sender: sender
+        ) == true {
+            return true
+        }
+
         if AppDelegate.shared?.handleDetachedInspectorWindowCloseAction(
             action: action,
             target: target,

@@ -1403,30 +1403,11 @@ final class KeyboardShortcutSettingsFileStoreTests: XCTestCase {
         )
         defer { appDelegate.unregisterMainWindowContextForTesting(windowId: windowId) }
 
-        let previousMainMenu = NSApp.mainMenu
-        defer { NSApp.mainMenu = previousMainMenu }
-
-        let mainMenu = NSMenu(title: "Main")
-        let appMenuItem = NSMenuItem(title: "cmux", action: nil, keyEquivalent: "")
-        let appMenu = NSMenu(title: "cmux")
         let reloadItem = NSMenuItem(
             title: String(localized: "menu.app.reloadConfiguration", defaultValue: "Reload Configuration"),
-            action: nil,
+            action: NSSelectorFromString("swiftuiPrivateReloadAction:"),
             keyEquivalent: ""
         )
-        appMenu.addItem(reloadItem)
-        mainMenu.addItem(appMenuItem)
-        mainMenu.setSubmenu(appMenu, for: appMenuItem)
-        NSApp.mainMenu = mainMenu
-
-        let selector = NSSelectorFromString("reloadConfigurationMenuItem:")
-        appDelegate.installReloadConfigurationMenuItemAction()
-
-        XCTAssertTrue(
-            reloadItem.target === appDelegate,
-            "Reload Configuration menu item must be owned by AppDelegate"
-        )
-        XCTAssertEqual(reloadItem.action, selector)
 
         try writeSettingsFile(
             """
@@ -1439,12 +1420,19 @@ final class KeyboardShortcutSettingsFileStoreTests: XCTestCase {
             to: settingsFileURL
         )
 
+        let selector = NSSelectorFromString("reloadConfigurationMenuItem:")
         XCTAssertTrue(
             appDelegate.responds(to: selector),
             "Reload Configuration menu item must have an AppKit selector-backed action path"
         )
 
-        XCTAssertTrue(NSApp.sendAction(selector, to: reloadItem.target, from: reloadItem))
+        XCTAssertTrue(
+            appDelegate.handleReloadConfigurationMenuAction(
+                action: reloadItem.action!,
+                target: reloadItem.target,
+                sender: reloadItem
+            )
+        )
 
         XCTAssertNil(cmuxConfigStore.resolvedAction(id: "first"))
         XCTAssertNotNil(cmuxConfigStore.resolvedAction(id: "second"))
