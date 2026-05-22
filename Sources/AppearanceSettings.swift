@@ -101,14 +101,19 @@ enum AppearanceSettings {
     }
 
     static func colorSchemePreference(
-        appAppearance: NSAppearance? = nil,
+        appAppearance _: NSAppearance? = nil,
         defaults: UserDefaults = .standard,
         systemAppearance: SystemAppearance? = nil
     ) -> GhosttyConfig.ColorSchemePreference {
-        if let appAppearance {
-            return appAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? .dark : .light
-        }
+        return terminalColorSchemePreference(defaults: defaults, systemAppearance: systemAppearance)
+    }
 
+    // Ghostty split-theme resolution follows cmux's persisted appearance mode.
+    // AppKit view/window appearances can lag during live mode changes.
+    static func terminalColorSchemePreference(
+        defaults: UserDefaults = .standard,
+        systemAppearance: SystemAppearance? = nil
+    ) -> GhosttyConfig.ColorSchemePreference {
         let mode = mode(for: defaults.string(forKey: appearanceModeKey))
         if mode == .light { return .light }
         if mode == .dark { return .dark }
